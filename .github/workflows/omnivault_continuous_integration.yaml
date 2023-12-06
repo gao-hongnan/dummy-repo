@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  WORKING_DIRECTORY: ${{ inputs.working-directory == '' && '.' || inputs.working-directory }}
+  WORKING_DIRECTORY: "."
   RUFF_SCRIPT_LOCATION: "scripts/devops/continuous-integration/lint_ruff.sh"
   RUFF_OUTPUT_FILENAME: "ruff_results.log"
 
