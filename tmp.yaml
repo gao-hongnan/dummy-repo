@@ -1,0 +1,68 @@
+name: Deploy JupyterBook
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  CONTENT_DIR: omniverse/dsa/searching_algorithms/binary_search/problems # Update as necessary
+
+jobs:
+  build-and-deploy-book:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          cache: pip
+
+      - name: Cache pip packages
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/pip
+            !~/.cache/pip/log
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements_dev.txt
+          pip install jupytext --upgrade
+
+      # Convert Markdown files to Jupyter Notebooks
+      - name: Convert Markdown to Jupyter Notebooks
+        run: |
+          find ${{ env.CONTENT_DIR }} -name "*.md" | while read mdfile; do
+            jupytext --to notebook --output "${mdfile%.md}.ipynb" "$mdfile"
+          done
+
+      # Commit and push the newly generated Jupyter Notebooks
+      - name: Commit and push Jupyter Notebooks
+        run: |
+          git config --global user.name 'gao-hongnan'
+          git config --global user.email 'hongnangao@gmail.com'
+          git add ${{ env.CONTENT_DIR }}/*.ipynb
+          git commit -m "Auto-update Jupyter Notebooks"
+          git push
+
+      # Build the book
+      - name: Build JupyterBook
+        run: |
+          jupyter-book build ${{ env.CONTENT_DIR }}
+
+      # Deploy the book to GitHub Pages
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./_build/html
+          cname: www.yourdomain.com

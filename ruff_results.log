@@ -1,0 +1,18 @@
+Current directory: /Users/gaohn/gaohn/omniverse
+_tmp_types.py:3:5: F401 [*] `typing.Callable` imported but unused
+_tmp_types.py:4:5: F401 [*] `typing.Dict` imported but unused
+_tmp_types.py:5:5: F401 [*] `typing.Generic` imported but unused
+_tmp_types.py:6:5: F401 [*] `typing.List` imported but unused
+_tmp_types.py:7:5: F401 [*] `typing.Optional` imported but unused
+_tmp_types.py:9:5: F401 [*] `typing.Type` imported but unused
+_tmp_types.py:10:5: F401 [*] `typing.TypeVar` imported but unused
+_tmp_types.py:12:5: F401 [*] `typing.cast` imported but unused
+_tmp_types.py:15:25: F401 [*] `rich.pretty.pprint` imported but unused
+_tmp_types.py:43:1: E402 Module level import not at top of file
+_tmp_types.py:44:1: E402 Module level import not at top of file
+_tmp_types.py:48:5: ARG001 Unused function argument: `x`
+_tmp_types.py:48:29: ARG001 Unused function argument: `centroids`
+omnivault/dsa/searching_algorithms/strategies.py:169:13: E741 Ambiguous variable name: `l`
+omnivault/dsa/searching_algorithms/strategies.py:183:9: E741 Ambiguous variable name: `l`
+Found 15 errors.
+[*] 9 fixable with the `--fix` option.
