@@ -29,13 +29,14 @@ jobs:
       - name: Set environment variables
         id: set-env
         run: |
+          echo "working-directory=." >> $GITHUB_ENV
           echo "ruff-script-location=scripts/devops/continuous-integration/lint_ruff.sh" >> $GITHUB_ENV
           echo "ruff-output-filename=ruff_resultsaaa.log" >> $GITHUB_ENV
   continuous-integration:
     needs: setup-env
     uses: ./.github/workflows/_continuous_integration.yaml
     with:
-      working-directory: "."
-      ruff-script-location: ${{ needs.setup-env.outputs.ruff-script-location }}
-      ruff-output-filename: ${{ needs.setup-env.outputs.ruff-output-filename }}
+      working-directory: .
+      ruff-script-location: scripts/devops/continuous-integration/lint_ruff.sh
+      ruff-output-filename: ruff_results.log
     secrets: inherit
