@@ -17,14 +17,26 @@ concurrency:
 
 env: # FIXME: https://github.com/orgs/community/discussions/26671
   WORKING_DIRECTORY: "."
-  RUFF_SCRIPT_LOCATION: "scripts/devops/continuous-integration/lint_ruff.sh"
-  RUFF_OUTPUT_FILENAME: "ruff_results.log"
 
 jobs:
+  setup-env:
+    runs-on: ubuntu-latest
+    outputs:
+      working-directory: ${{ steps.set-env.outputs.working-directory }}
+      ruff-script-location: ${{ steps.set-env.outputs.ruff-script-location }}
+      ruff-output-filename: ${{ steps.set-env.outputs.ruff-output-filename }}
+    steps:
+      - name: Set environment variables
+        id: set-env
+        run: |
+          echo "working-directory=." >> $GITHUB_ENV
+          echo "ruff-script-location=scripts/devops/continuous-integration/lint_ruff.sh" >> $GITHUB_ENV
+          echo "ruff-output-filename=ruff_resultsaaa.log" >> $GITHUB_ENV
   continuous-integration:
+    needs: setup-env
     uses: ./.github/workflows/_continuous_integration.yaml
     with:
-      working-directory: "."
-      ruff-script-location: "scripts/devops/continuous-integration/lint_ruff.sh"
-      ruff-output-filename: "ruff_results.log"
+      working-directory: ${{ needs.setup-env.outputs.working-directory }}
+      ruff-script-location: ${{ needs.setup-env.outputs.ruff-script-location }}
+      ruff-output-filename: ${{ needs.setup-env.outputs.ruff-output-filename }}
     secrets: inherit
