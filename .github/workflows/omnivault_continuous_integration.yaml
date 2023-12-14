@@ -36,7 +36,7 @@ jobs:
     needs: setup-env
     uses: ./.github/workflows/_continuous_integration.yaml
     with:
-      working-directory: .
-      ruff-script-location: scripts/devops/continuous-integration/lint_ruff.sh
-      ruff-output-filename: ruff_results.log
+      working-directory: ${{ needs.setup-env.outputs.working-directory }}
+      ruff-script-location: ${{ needs.setup-env.outputs.ruff-script-location }}
+      ruff-output-filename: ${{ needs.setup-env.outputs.ruff-output-filename }}
     secrets: inherit
