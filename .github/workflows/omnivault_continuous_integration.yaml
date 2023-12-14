@@ -27,6 +27,8 @@ jobs:
       working-directory: ${{ env.WORKING_DIRECTORY }}
       ruff-script-location: ${{ env.RUFF_SCRIPT_LOCATION }}
       ruff-output-filename: ${{ env.RUFF_OUTPUT_FILENAME }}
+    steps:
+      - run: echo "Exposing env vars to reusable workflows."
   continuous-integration:
     needs: setup-env
     uses: ./.github/workflows/_continuous_integration.yaml
