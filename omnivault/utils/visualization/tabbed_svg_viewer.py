@@ -1,12 +1,12 @@
+# mypy: disable-error-code="no-untyped-call, import-untyped"
+
 from typing import List
 
 import ipywidgets
 from IPython.display import SVG, display
 
 
-def create_tabbed_svg_viewer(
-    image_paths: List[str], tab_titles: List[str]
-) -> ipywidgets.Tab:
+def create_tabbed_svg_viewer(image_paths: List[str], tab_titles: List[str]) -> ipywidgets.Tab:
     """
     Create a tabbed image viewer widget.
 
