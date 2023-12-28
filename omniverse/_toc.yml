@@ -1,0 +1,47 @@
+# Table of contents
+# Learn more at https://jupyterbook.org/customize/toc.html
+
+format: jb-book
+root: intro
+parts:
+  # - caption: Notations
+  #   chapters:
+  #     - file: notations/machine_learning.md
+  - caption: Transformers - Attention is All You Need
+    chapters:
+      - file: transformer/intro.md
+      - file: transformer/notations.md
+      # - file: transformer/dump.md
+  #     - file: transformer/decoder/intro.md
+  #       sections:
+  #         - file: transformer/decoder/concept.md
+  - caption: Data Structures and Algorithms
+    chapters:
+      - file: dsa/complexity_analysis/intro.md
+        sections:
+          - file: dsa/complexity_analysis/master_theorem.md
+      - file: dsa/stack/intro.md
+        sections:
+          - file: dsa/stack/concept.md
+      - file: dsa/searching_algorithms/linear_search/intro.md
+        sections:
+          - file: dsa/searching_algorithms/linear_search/concept.md
+      - file: dsa/searching_algorithms/binary_search/intro.md
+        sections:
+          - file: dsa/searching_algorithms/binary_search/concept.md
+          - file: dsa/searching_algorithms/binary_search/problems/875-koko-eating-bananas.md
+  - caption: Linear Algebra
+    chapters:
+      - file: linear_algebra/01_preliminaries/intro.md
+        sections:
+          - file: linear_algebra/01_preliminaries/01-fields.md
+          - file: linear_algebra/01_preliminaries/02-systems-of-linear-equations.md
+      - file: linear_algebra/02_vectors/intro.md
+        sections:
+          - file: linear_algebra/02_vectors/01-vector-definition.md
+          - file: linear_algebra/02_vectors/02-vector-operation.md
+          - file: linear_algebra/02_vectors/03-vector-norm.md
+          - file: linear_algebra/02_vectors/04-vector-products.md
+  - caption: References, Resources and Roadmap
+    chapters:
+      - file: bibliography.md
