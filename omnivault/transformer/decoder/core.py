@@ -348,7 +348,7 @@ class GPTDecoder(BaseDecoder):
         # not batched! It is a single sequence of tokens so in order for it to be compatible
         # with the model, we need to expand the first dimension to 1 - making it a batch.
         input_tokens = cast(torch.LongTensor, torch.as_tensor(input_tokens, dtype=torch.long)[None, ...])  # type: ignore[no-redef]
-
+        print(input_tokens.shape)
         for _ in range(max_tokens):
             # if the sequence context is growing too long we must crop it at context_length
             input_tokens_cropped = (
@@ -356,6 +356,7 @@ class GPTDecoder(BaseDecoder):
                 if input_tokens.size(1) > self.config.context_length
                 else input_tokens
             )
+            print(input_tokens_cropped.shape)
 
             batch_size = input_tokens_cropped.size(0)
             seq_len = input_tokens_cropped.size(1)  # this must be less than or equal to self.config.context_length
