@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-from typing import Callable, Dict, Iterator, Literal, Tuple, Type
+from typing import Any, Callable, Dict, Iterator, List, Literal, Tuple, Type
 
 import torch
 from torch import nn
 
-from omnivault._types._generic import T
 from omnivault.utils.config_management.dynamic import DynamicClassFactory
 
-RegisteredOptimizers = Literal["torch.optim.Adam", "torch.optim.SGD"]
+RegisteredOptimizers = Literal["torch.optim.Adam", "torch.optim.AdamW", "torch.optim.SGD"]
 OPTIMIZER_REGISTRY: Dict[RegisteredOptimizers, Type[OptimizerConfig]] = {}
 
 
@@ -92,9 +91,22 @@ class OptimizerConfig(DynamicClassFactory[torch.optim.Optimizer]):
     name: str
     lr: float  # assume all optimizers have this parameter
 
-    def build(self, *, params: nn.ParameterList | Iterator[nn.Parameter], **kwargs: T) -> torch.optim.Optimizer:
+    # FIXME: how do we loosen this params type?
+    def build(
+        self,
+        *,
+        params: List[Dict[Literal["params", "weight_decay"], List[torch.nn.Parameter] | float]]
+        | nn.ParameterList
+        | Iterator[nn.Parameter],
+        **kwargs: Any,
+    ) -> torch.optim.Optimizer:
         """Builder method for creating an optimizer instance."""
         return self.create_instance(params=params, **kwargs)
+
+    class Config:
+        """Pydantic configuration for `OptimizerConfig`."""
+
+        extra = "forbid"
 
 
 @register_optimizer(name="torch.optim.Adam")
@@ -104,6 +116,18 @@ class AdamConfig(OptimizerConfig):
 
     betas: Tuple[float, float] = (0.9, 0.98)
     eps: float = 1e-9
+    weight_decay: float = 0.0
+
+
+@register_optimizer(name="torch.optim.AdamW")
+class AdamWConfig(OptimizerConfig):
+    name: str = "torch.optim.AdamW"
+    lr: float = 0.2
+
+    betas: Tuple[float, float] = (0.9, 0.999)
+    eps: float = 1e-8
+    weight_decay: float = 1e-2
+    amsgrad: bool = False
 
 
 @register_optimizer(name="torch.optim.SGD")

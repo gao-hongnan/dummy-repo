@@ -1,17 +1,24 @@
 from __future__ import annotations
 
-from typing import cast, overload
+from typing import List, cast, overload
 
 import torch
 from torch import nn
+from typing_extensions import override
 
 from omnivault._types._alias import NotGiven
 from omnivault._types._sentinel import NOT_GIVEN
 from omnivault.transformer.config.decoder import DecoderConfig
+from omnivault.transformer.core.dataset import (
+    construct_dummy_batch_future_masks,
+    construct_dummy_batch_target_padding_masks,
+)
 from omnivault.transformer.decoder.base import BaseDecoder, BaseDecoderBlock
 from omnivault.transformer.modules.attention.core import MultiHeadedAttention
 from omnivault.transformer.modules.layers.addnorm import AddNorm
 from omnivault.transformer.modules.layers.mlp import PositionwiseFeedForward
+
+__all__ = ["GPTDecoderBlock", "GPTDecoder"]
 
 
 class GPTDecoderBlock(BaseDecoderBlock):
@@ -25,13 +32,13 @@ class GPTDecoderBlock(BaseDecoderBlock):
     def __init__(self, config: DecoderConfig) -> None:
         super().__init__(config)
         # fmt: off
-        self.masked_self_attention_mha = MultiHeadedAttention(**config.decoder_block.masked_self_attention_mha.__dict__)
+        self.masked_self_attention_mha = MultiHeadedAttention(**config.decoder_block.masked_self_attention_mha.model_dump(mode="python"))
         # self.encoder_decoder_cross_attention_mha = MultiHeadedAttention(**config.decoder.encoder_decoder_cross_attention_mha)
 
-        self.feed_forward              = PositionwiseFeedForward(**config.decoder_block.feed_forward.__dict__)
+        self.feed_forward              = PositionwiseFeedForward(**config.decoder_block.feed_forward.model_dump(mode="python"))
 
-        self.add_norm_1                = AddNorm(**config.decoder_block.add_norm_1.__dict__)
-        self.add_norm_2                = AddNorm(**config.decoder_block.add_norm_2.__dict__)
+        self.add_norm_1                = AddNorm(**config.decoder_block.add_norm_1.model_dump(mode="python"))
+        self.add_norm_2                = AddNorm(**config.decoder_block.add_norm_2.model_dump(mode="python"))
 
         # self.feed_forward.register_forward_hook(forward_hook)
         # fmt: on
@@ -72,13 +79,14 @@ class GPTDecoderBlock(BaseDecoderBlock):
         return z
 
 
+# NOTE: seq_len <= context_length == max_seq_len
 class GPTDecoder(BaseDecoder):
     def __init__(self, config: DecoderConfig) -> None:
         super().__init__(config)
         # fmt: off
         self.d_model       : int           = config.d_model
         self.tok_embed     : nn.Embedding  = nn.Embedding(config.vocab_size, config.d_model)
-        self.pos_embed     : nn.Parameter  = nn.Parameter(torch.zeros(1, config.max_seq_len, config.d_model))
+        self.pos_embed     : nn.Parameter  = nn.Parameter(torch.zeros(1, config.context_length, config.d_model))
         self.decoder_blocks: nn.ModuleList = nn.ModuleList([GPTDecoderBlock(config) for _ in range(config.num_decoder_blocks)]) # PyTorch did not make ModuleList a proper container, maybe open a PR to make it inherit Generic[T]???
 
         self.dropout       : nn.Dropout    = nn.Dropout(config.dropout)
@@ -86,80 +94,70 @@ class GPTDecoder(BaseDecoder):
         self.head          : nn.Linear     = nn.Linear(config.d_model, config.vocab_size)  # last layer
         # fmt: on
 
-        self._reset_parameters()
+        self.apply(self._init_weights)
 
-    # @overload
-    # def create_target_masks(self, target_padding_masks: torch.Tensor, future_masks: torch.Tensor) -> torch.BoolTensor:
-    #     ...
+        # apply special scaled init to the residual projections, per GPT-2 paper
+        for parameter_name, parameter in self.named_parameters():
+            if parameter_name.endswith("context_projection.weight"):
+                mean = 0.0
+                std_dev = 0.02 / torch.sqrt(torch.tensor(2 * config.num_decoder_blocks, dtype=torch.float))
+                torch.nn.init.normal_(parameter, mean=mean, std=std_dev)
 
-    # @overload
-    # def create_target_masks(
-    #     self, target_padding_masks: torch.Tensor, future_masks: torch.Tensor | None
-    # ) -> torch.BoolTensor:
-    #     ...
+    @property
+    def total_trainable_parameters(self) -> int:
+        """Returns the number of trainable parameters in the model."""
+        return sum(p.numel() for p in self.parameters() if p.requires_grad)
 
-    # @overload
-    # def create_target_masks(
-    #     self, target_padding_masks: torch.Tensor | None, future_masks: torch.Tensor
-    # ) -> torch.BoolTensor:
-    #     ...
+    @property
+    def total_parameters(self) -> int:
+        """Returns the total number of parameters in the model, including non-trainable."""
+        return sum(p.numel() for p in self.parameters())
 
-    # @overload
-    # def create_target_masks(
-    #     self,
-    #     target_padding_masks: torch.Tensor | None,
-    #     future_masks: torch.Tensor | None,
-    # ) -> torch.BoolTensor:
-    #     ...
-
-    # def create_target_masks(
-    #     self,
-    #     target_padding_masks: torch.Tensor | None,
-    #     future_masks: torch.Tensor | None,
-    # ) -> torch.BoolTensor:
-    #     if target_padding_masks is None and future_masks is None:
-    #         raise ValueError("At least one of target_padding_masks or future_masks must not be None")
-
-    #     if target_padding_masks is None:
-    #         assert future_masks is not None  # for mypy
-    #         target_padding_masks = torch.ones_like(future_masks, dtype=torch.bool)
-
-    #     if future_masks is None:
-    #         assert target_padding_masks is not None  # for mypy
-    #         future_masks = torch.ones_like(target_padding_masks, dtype=torch.bool)
-
-    #     return torch.logical_and(target_padding_masks, future_masks).bool()  # type: ignore[return-value]
+    @override
+    def _init_weights(self, module: nn.Module) -> None:
+        normal_init_modules = (nn.Linear, nn.Embedding)
+        if isinstance(module, normal_init_modules):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            if hasattr(module, "bias") and module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
 
     @overload
     def create_target_masks(
-        self, target_padding_masks: torch.BoolTensor, future_masks: torch.BoolTensor
+        self, batch_size: int, seq_len: int, target_padding_masks: torch.BoolTensor, future_masks: torch.BoolTensor
     ) -> torch.BoolTensor:
         ...
 
     @overload
-    def create_target_masks(self, target_padding_masks: torch.BoolTensor, future_masks: NotGiven) -> torch.BoolTensor:
+    def create_target_masks(
+        self, batch_size: int, seq_len: int, target_padding_masks: torch.BoolTensor, future_masks: NotGiven
+    ) -> torch.BoolTensor:
         ...
 
     @overload
-    def create_target_masks(self, target_padding_masks: NotGiven, future_masks: torch.BoolTensor) -> torch.BoolTensor:
+    def create_target_masks(
+        self, batch_size: int, seq_len: int, target_padding_masks: NotGiven, future_masks: torch.BoolTensor
+    ) -> torch.BoolTensor:
         ...
 
     @overload
-    def create_target_masks(self, target_padding_masks: NotGiven, future_masks: NotGiven) -> torch.BoolTensor:
+    def create_target_masks(
+        self, batch_size: int, seq_len: int, target_padding_masks: NotGiven, future_masks: NotGiven
+    ) -> torch.BoolTensor:
         ...
 
     def create_target_masks(
         self,
+        batch_size: int,
+        seq_len: int,
         target_padding_masks: torch.BoolTensor | NotGiven = NOT_GIVEN,
         future_masks: torch.BoolTensor | NotGiven = NOT_GIVEN,
     ) -> torch.BoolTensor:
         """
-        Creates a combined target mask for use in decoder layers, based on provided
-        target padding masks and future masks. If either mask is not provided (NotGiven),
-        a default mask is created using `torch.ones_like` to ensure shape compatibility
-        and neutral behavior in subsequent operations.
+        Creates a combined target mask for use in decoder layers. If target_padding_masks
+        is not provided, a default mask of ones is created. If future_masks is not provided,
+        a default lower triangular mask is created to mask future tokens.
 
-        The default mask created by `torch.ones_like` acts as a placeholder that
+        The default mask created by `torch.ones_like` or `torch.tril` acts as a placeholder that
         allows operations to proceed without altering the behavior that the mask
         would impose. This is particularly useful when the absence of a mask should
         not lead to masking out or altering any data, but rather to a 'pass-through'
@@ -169,6 +167,10 @@ class GPTDecoder(BaseDecoder):
         means is if the user does not provide a target padding mask, the model will
         not mask out any tokens in the target sequence, which is the same behavior
         as if the user had provided a target padding mask of all ones.
+
+        Something to note is for future masks, if user does not provide outside,
+        then the default mask is a lower triangular matrix of ones, which means
+        that the model will not be able to attend to future tokens.
 
         Parameters
         ----------
@@ -195,19 +197,23 @@ class GPTDecoder(BaseDecoder):
             If both target_padding_masks and future_masks are NotGiven, a ValueError
             is raised since at least one mask is required for the operation.
         """
+        target_masks_shape = (batch_size, 1, seq_len, seq_len)
         if target_padding_masks is NOT_GIVEN and future_masks is NOT_GIVEN:
-            raise ValueError("At least one of target_padding_masks or future_masks must not be None")
+            target_padding_masks = cast(
+                torch.BoolTensor, construct_dummy_batch_target_padding_masks(batch_size, seq_len)
+            )
+            future_masks = cast(torch.BoolTensor, construct_dummy_batch_future_masks(batch_size, seq_len))
 
         # FIXME: CAN SOMEONE PLEASE HELP ME WITH TYPING HERE?? I AM SO STUCK IN CASTING HELL.
         if target_padding_masks is NOT_GIVEN:
             target_padding_masks = cast(
-                torch.BoolTensor, torch.ones_like(cast(torch.Tensor, future_masks), dtype=torch.bool)
+                torch.BoolTensor, construct_dummy_batch_target_padding_masks(batch_size, seq_len)
             )
 
         if future_masks is NOT_GIVEN:
-            future_masks = cast(
-                torch.BoolTensor, torch.ones_like(cast(torch.Tensor, target_padding_masks), dtype=torch.bool)
-            )
+            future_masks = cast(torch.BoolTensor, construct_dummy_batch_future_masks(batch_size, seq_len))
+
+        assert target_padding_masks.shape == future_masks.shape == target_masks_shape  # type: ignore[union-attr]
 
         return cast(
             torch.BoolTensor,
@@ -260,8 +266,9 @@ class GPTDecoder(BaseDecoder):
         assert encoder_hidden_states_masks is NOT_GIVEN, "GPTDecoderBlock does not have encoder-decoder cross-attention"
 
         # fmt: off
-        seq_len     : int              = input_tokens.size(1)
-        target_masks: torch.BoolTensor = self.create_target_masks(target_padding_masks, future_masks)
+        batch_size  : int              = input_tokens.size(0)
+        seq_len     : int              = input_tokens.size(1) # note seq_len <= context_length in decoder
+        target_masks: torch.BoolTensor = self.create_target_masks(batch_size=batch_size, seq_len=seq_len, target_padding_masks=target_padding_masks, future_masks=future_masks)
 
         z = self.tok_embed(input_tokens) # * math.sqrt(self.d_model) for better optimization landscape
         z = z + self.pos_embed[:, :seq_len, :]
@@ -274,3 +281,121 @@ class GPTDecoder(BaseDecoder):
         logits: torch.FloatTensor = self.head(z)
         # fmt: on
         return logits
+
+    def estimate_mfu(self) -> None:
+        ...
+
+    @torch.no_grad()
+    def generate(
+        self,
+        input_tokens: torch.LongTensor | List[int],
+        *,
+        max_tokens: int = 100,  # max tokens to generate
+        temperature: float = 1.0,  # temperature for sampling
+        greedy: bool = False,  # if True, sample greedily
+        top_k: int | None = None,  # if not None, sample from top k tokens
+    ) -> torch.LongTensor:
+        """
+        Generates a sequence of tokens based on the provided
+        input tokens.
+
+        This method employs a specified generation strategy that
+        can be controlled through parameters like temperature,
+        greedy, and top_k. It supports both greedy and probabilistic
+        sampling approaches for token generation.
+
+        Parameters
+        ----------
+        input_tokens : Union[torch.LongTensor, List[int]]
+            The initial tokens from which the generation begins.
+            Can be a list of integers or a LongTensor.
+            Shape: (L,)
+        max_tokens : int
+            The maximum number of tokens to generate. Default is 100.
+        temperature : float
+            Controls the randomness of predictions by scaling the
+            logits before applying softmax. Higher values increase
+            randomness. Default is 1.0.
+        greedy : bool
+            If True, the generation uses a greedy approach, selecting
+            the most likely next token. If False, uses probabilistic
+            sampling. Default is False.
+        top_k : Optional[int], optional
+            Limits the sampling pool to the top k most likely tokens.
+            If None, no limit is applied. Default is None.
+
+        Returns
+        -------
+        torch.LongTensor
+            The tensor containing the generated sequence of tokens.
+
+        Notes
+        -----
+        - `temperature` affects the distribution sharpness; a lower
+        temperature results in a sharper distribution.
+        - `greedy` and `top_k` provide mechanisms to control the
+        exploration-exploitation balance in the generation process.
+        """
+
+        if self.training:
+            # a safety check to make sure we are not in training mode
+            # this generate could be called outside after training, or during
+            # training as a form of validation/evaluation.
+            self.eval()
+
+        # NOTE: `input_tokens` is a list of integers, or a torch.LongTensor of shape (S or T).
+        # the distinction between this `input_tokens` versus the one in `forward` is this is
+        # not batched! It is a single sequence of tokens so in order for it to be compatible
+        # with the model, we need to expand the first dimension to 1 - making it a batch.
+        input_tokens = cast(torch.LongTensor, torch.as_tensor(input_tokens, dtype=torch.long)[None, ...])  # type: ignore[no-redef]
+
+        for _ in range(max_tokens):
+            # if the sequence context is growing too long we must crop it at context_length
+            input_tokens_cropped = (
+                input_tokens[:, -self.config.context_length :]
+                if input_tokens.size(1) > self.config.context_length
+                else input_tokens
+            )
+
+            batch_size = input_tokens_cropped.size(0)
+            seq_len = input_tokens_cropped.size(1)  # this must be less than or equal to self.config.context_length
+
+            target_padding_masks = construct_dummy_batch_target_padding_masks(batch_size, seq_len)
+            future_masks = construct_dummy_batch_future_masks(batch_size, seq_len)
+
+            logits = self(
+                input_tokens_cropped,
+                target_padding_masks=target_padding_masks,
+                future_masks=future_masks,
+            )
+            assert logits.shape == (batch_size, seq_len, self.config.vocab_size)
+
+            # NOTE: we are only interested in the last token's logits because in
+            # autoregressive models, the last token's logits holds the contextual
+            # information of all previous tokens (because it is the only token
+            # not masked). But in any case, we need this last token's logits to
+            # sample the next token.
+            logits = logits[:, -1, :]  # shape: (batch_size, vocab_size)
+            assert logits.shape == (batch_size, self.config.vocab_size)
+
+            # now scale by temperature
+            logits = logits / (temperature + 1e-8)  # add epsilon to prevent division by zero
+
+            # optional cropping of logits to top k
+            if top_k is not None:
+                top_k_values, _ = torch.topk(logits, k=top_k)
+                logits[logits < top_k_values[:, [-1]]] = float("-inf")
+
+            # convert logits to softmax probabilities
+            probs = torch.softmax(logits, dim=-1)
+
+            # multinomial vs greedy sampling
+            # why andrej uses topk instead of torch.argmax(probs, dim=-1, keepdim=True)?
+            next_token = (
+                torch.multinomial(probs, num_samples=1) if not greedy else torch.topk(probs, k=1, dim=-1).indices
+            )
+
+            # append the next token to the input tokens, aka append sampled index
+            # to the running sequence context and continue the generation
+            input_tokens = torch.cat([input_tokens, next_token], dim=1)  # type: ignore[assignment]
+        return input_tokens
