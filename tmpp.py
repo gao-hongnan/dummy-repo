@@ -1,50 +1,79 @@
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple, Union
+from enum import Enum
+from dataclasses import dataclass, field
 
-import matplotlib.pyplot as plt
-import numpy as np
-import torch
 
-from omnivault.linear_algebra.plotter import (
-    VectorPlotter2D,
-    VectorPlotter3D,
-    add_text_annotations,
-    add_vectors_to_plotter,
+@dataclass
+class Reports:
+    num_of_reports: int
+    pages_per_report: int
+    sentences_per_page: int
+    words_per_sentence: int
+
+    total_chunks: int = field(init=False)
+
+    def calculate_total_chunks(self) -> int:
+        """Using a fixed-size chunking strategy, calculate the total number of
+        chunks needed given the number of reports, pages per report, sentences
+        per page, and words per sentence.
+        """
+        return (
+            self.num_of_reports
+            * self.pages_per_report
+            * self.sentences_per_page
+            * self.words_per_sentence
+        )
+
+    def __post_init__(self) -> None:
+        self.total_chunks = self.calculate_total_chunks()
+
+
+class DataTypeSize(Enum):
+    FLOAT16 = 2
+    FLOAT32 = 4
+    FLOAT64 = 8
+    FLOAT128 = 16
+
+    def __str__(self) -> str:
+        return self.name.lower()
+
+
+@dataclass
+class Embeddings:  # TextEmbeddings, ImageEmbeddings, AudioEmbeddings
+    dimension: int
+    data_type_size: DataTypeSize
+
+
+@dataclass
+class Metadata:
+    pass
+
+
+def calculate_storage_capacity(report: Reports, embeddings: Embeddings) -> int:
+    """
+    Calculate the storage capacity needed for a vector database.
+
+    Args:
+    params (CapacityParameters): Parameters including the number of chunks,
+                                 their dimensionality, and the data type size.
+
+    Returns:
+    int: The total storage capacity required in bytes.
+    """
+    total_chunks = report.total_chunks
+    storage_capacity_bytes = (
+        total_chunks * embeddings.dimension * embeddings.data_type_size.value
+    )
+
+    return storage_capacity_bytes
+
+
+report = Reports(
+    num_of_reports=100,
+    pages_per_report=250,
+    sentences_per_page=100,
+    words_per_sentence=15,
 )
-from omnivault.linear_algebra.vector import Vector, Vector2D, Vector3D
-from omnivault.utils.visualization.figure_manager import FigureManager
+embeddings = Embeddings(dimension=768, data_type_size=DataTypeSize.FLOAT32)
 
-# from mpl_toolkits.mplot3d import Axes3D
-
-
-fig, ax = plt.subplots(figsize=(9, 9))
-
-plotter = VectorPlotter2D(
-    fig=fig,
-    ax=ax,
-    ax_kwargs={
-        "set_xlim": {"left": 0, "right": 5},
-        "set_ylim": {"bottom": 0, "top": 5},
-        "set_xlabel": {"xlabel": "x-axis", "fontsize": 16},
-        "set_ylabel": {"ylabel": "y-axis", "fontsize": 16},
-        "set_title": {"label": "Vector Magnitude Demonstration", "size": 18},
-    },
-)
-
-v = Vector2D(
-    origin=(0, 0),
-    direction=(3, 4),
-    color="r",
-    label="$\|\mathbf{v}\|_2 = \sqrt{3^2 + 4^2} = 5$",
-)
-horizontal_component_v = Vector2D(
-    origin=(0, 0), direction=(3, 0), color="b", label="$v_1 = 3$"
-)
-vertical_component_v = Vector2D(
-    origin=(3, 0), direction=(0, 4), color="g", label="$v_2 = 4$"
-)
-add_vectors_to_plotter(plotter, [v, horizontal_component_v, vertical_component_v])
-add_text_annotations(plotter, [v])
-
-plotter.plot()
-plt.show()
+storage_capacity = calculate_storage_capacity(report, embeddings)
+print(storage_capacity)
