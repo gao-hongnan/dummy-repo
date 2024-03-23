@@ -34,7 +34,7 @@ line-length = 120
 indent-width = 4
 output-format = "grouped"
 
-target-version = "{{ cookiecutter.python_version }}"
+target-version = "{{ cookiecutter.ruff_python_version }}"
 
 [extend-per-file-ignores]
 

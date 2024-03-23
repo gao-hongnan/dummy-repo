@@ -16,6 +16,7 @@
     "issue_tracker_url": "https://github.com/{{ cookiecutter.github_username }}/{{ cookiecutter.project_slug }}/issues",
     "ruff_packages": "package1 package2 package3",
     "ruff_flags": "check --no-fix --no-show-source",
+    "ruff_python_version": "py39",
     "isort_packages": "package1 package2 package3",
     "isort_flags": "--check --diff --color --verbose --profile=black",
     "black_packages": "package1 package2 package3",
