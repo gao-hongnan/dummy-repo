@@ -27,6 +27,10 @@ Cruft, follow these steps:
     - This command checks for updates from the linked template and attempts to
       merge them into your project.
 
+Common gotcha
+
+-   https://github.com/cookiecutter/cookiecutter/issues/1624#issuecomment-1076475537
+
 ## PEP-0561: `py.typed`
 
 The `py.typed` marker indicates that a Python package includes type hints within
