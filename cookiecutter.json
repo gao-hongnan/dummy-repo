@@ -1,0 +1,32 @@
+{
+    "project_name": "PROJECT-NAME",
+    "project_slug": "{{ cookiecutter.project_name|lower|replace(' ', '-') }}",
+    "package_name": "{{ cookiecutter.project_slug.replace('-', '_') }}",
+    "jupyter_notebook_project": "hybrid",
+    "python_version": "3.9",
+    "github_username": "GITHUB-USERNAME",
+    "year": "THE-YEAR",
+    "version": "0.0.0",
+    "author_name": "YOUR-FIRST-AND-LAST-NAME",
+    "author_email": "YOUR-EMAIL",
+    "description": "PROJECT-DESCRIPTION",
+    "requires_python": ">={{ cookiecutter.python_version }}",
+    "repository_url": "https://github.com/{{ cookiecutter.github_username }}/{{ cookiecutter.project_slug }}",
+    "homepage": "https://YOUR-HOMEPAGE",
+    "issue_tracker_url": "https://github.com/{{ cookiecutter.github_username }}/{{ cookiecutter.project_slug }}/issues",
+    "ruff_packages": "package1 package2 package3",
+    "ruff_flags": "check --no-fix --no-show-source",
+    "isort_packages": "package1 package2 package3",
+    "isort_flags": "--check --diff --color --verbose --profile=black",
+    "black_packages": "package1 package2 package3",
+    "black_flags": "--check --diff --color --verbose",
+    "mypy_packages": "package1 package2 package3",
+    "mypy_flags": "--python-version={{ cookiecutter.python_version }} --color-output --pretty--follow-imports=normal",
+    "pytest_packages": "package1 package2 package3",
+    "pytest_flags": "--verbose",
+    "bandit_packages": "package1 package2 package3",
+    "bandit_flags": "--recursive --severity-level=high --confidence-level=high --configfile=pyproject.toml",
+    "_copy_without_render": [
+        ".github/**/*.yaml"
+    ]
+}

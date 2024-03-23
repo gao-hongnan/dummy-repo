@@ -1,0 +1,5 @@
+# {%- if cookiecutter.jupyter_notebook_project != 'yes' %}
+.mutmut-cache filter=lfs diff=lfs merge=lfs -text
+# {%- endif %}
+
+*.ipynb linguist-documentation
