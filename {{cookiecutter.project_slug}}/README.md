@@ -10,6 +10,8 @@ Cruft, follow these steps:
     - Run: `cookiecutter <template-path-or-url>`
     - Follow the prompts to customize your new project.
 
+    - Better use cruft to manage the project.
+
 2. **Navigate to your new project directory**:
 
     - `cd <your-new-project>`
