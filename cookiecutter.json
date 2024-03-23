@@ -22,7 +22,7 @@
     "black_packages": "package1 package2 package3",
     "black_flags": "--check --diff --color --verbose",
     "mypy_packages": "package1 package2 package3",
-    "mypy_flags": "--python-version={{ cookiecutter.python_version }} --color-output --pretty--follow-imports=normal",
+    "mypy_flags": "--python-version={{ cookiecutter.python_version }} --color-output --pretty --follow-imports=normal",
     "pytest_packages": "package1 package2 package3",
     "pytest_flags": "--verbose",
     "bandit_packages": "package1 package2 package3",
